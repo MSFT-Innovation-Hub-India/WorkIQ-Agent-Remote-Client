@@ -1,0 +1,53 @@
+{
+    "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+    "manifestVersion": "1.16",
+    "version": "1.0.0",
+    "id": "${{CLIENT_ID}}",
+    "developer": {
+        "name": "Microsoft Innovation Hub India",
+        "websiteUrl": "https://github.com/MSFT-Innovation-Hub-India",
+        "privacyUrl": "https://privacy.microsoft.com/privacystatement",
+        "termsOfUseUrl": "https://www.microsoft.com/servicesagreement"
+    },
+    "name": {
+        "short": "WorkIQ Agent",
+        "full": "WorkIQ Remote Agent Relay"
+    },
+    "description": {
+        "short": "Chat with your WorkIQ desktop agent from Teams",
+        "full": "WorkIQ Agent Relay connects your Microsoft Teams conversations to your personal WorkIQ desktop agent running on Windows 11. Send tasks and questions from your phone or any Teams client, and receive responses once your agent completes them."
+    },
+    "icons": {
+        "color": "color.png",
+        "outline": "outline.png"
+    },
+    "accentColor": "#0078D4",
+    "bots": [
+        {
+            "botId": "${{CLIENT_ID}}",
+            "scopes": [
+                "personal"
+            ],
+            "supportsFiles": false,
+            "isNotificationOnly": false,
+            "commandLists": [
+                {
+                    "scopes": [
+                        "personal"
+                    ],
+                    "commands": [
+                        {
+                            "title": "status",
+                            "description": "Check if your desktop agent is online"
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "permissions": [
+        "identity",
+        "messageTeamMembers"
+    ],
+    "validDomains": []
+}

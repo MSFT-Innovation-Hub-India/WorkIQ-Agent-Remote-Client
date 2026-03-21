@@ -1,0 +1,14 @@
+# direct deps
+python-dotenv
+pydantic>=2.10.4
+
+microsoft-agents-hosting-core
+microsoft-agents-hosting-aiohttp
+microsoft-agents-authentication-msal
+microsoft-agents-activity
+
+azure-identity
+msal
+redis
+redis-entraid
+aiohttp
