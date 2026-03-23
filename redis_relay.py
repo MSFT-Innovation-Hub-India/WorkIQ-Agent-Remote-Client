@@ -74,18 +74,10 @@ class RedisRelay:
         self._connected_at = time.time()
         logger.info("Redis relay connected to %s:%d", self._host, self._port)
 
-    _MAX_CONNECTION_AGE = 1800  # force reconnect every 30 minutes
-
     def _ensure_connected(self):
-        age = time.time() - getattr(self, '_connected_at', 0)
-        if self._client is None or age > self._MAX_CONNECTION_AGE:
-            if self._client is not None:
-                logger.info("Redis connection stale (%.0fs) — forcing reconnect", age)
-                try:
-                    self._client.close()
-                except Exception:
-                    pass
-                self._client = None
+        """Create a connection if none exists. Does NOT tear down healthy
+        connections — redis-entraid handles token refresh internally."""
+        if self._client is None:
             self._connect()
 
     def _ping_or_reconnect(self):
@@ -95,6 +87,11 @@ class RedisRelay:
             self._client.ping()
         except Exception as e:
             logger.warning("Redis PING failed (%s) — reconnecting", e)
+            try:
+                if self._client:
+                    self._client.close()
+            except Exception:
+                pass
             self._client = None
             self._connect()
 
