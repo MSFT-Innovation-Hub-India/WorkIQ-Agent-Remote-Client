@@ -183,9 +183,11 @@ class RedisRelay:
             self._conversation_refs[email_lower] = conversation_ref
         with self._users_lock:
             self._active_users[email_lower] = time.time()
-            # Initialize outbox cursor to read only new messages
+            # Use "0" so the first poll catches any responses already in
+            # the stream (e.g. agent replied while the poller was dead).
+            # After the first read, the cursor advances to the latest ID.
             if email_lower not in self._outbox_cursors:
-                self._outbox_cursors[email_lower] = "$"
+                self._outbox_cursors[email_lower] = "0"
 
         # Ensure the poller thread is alive — it may have died due to
         # a Redis connection failure or token expiry overnight
