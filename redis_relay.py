@@ -71,10 +71,31 @@ class RedisRelay:
             socket_connect_timeout=10,
         )
         self._client.ping()
+        self._connected_at = time.time()
         logger.info("Redis relay connected to %s:%d", self._host, self._port)
 
+    _MAX_CONNECTION_AGE = 1800  # force reconnect every 30 minutes
+
     def _ensure_connected(self):
-        if self._client is None:
+        age = time.time() - getattr(self, '_connected_at', 0)
+        if self._client is None or age > self._MAX_CONNECTION_AGE:
+            if self._client is not None:
+                logger.info("Redis connection stale (%.0fs) — forcing reconnect", age)
+                try:
+                    self._client.close()
+                except Exception:
+                    pass
+                self._client = None
+            self._connect()
+
+    def _ping_or_reconnect(self):
+        """Verify the connection is alive; reconnect if not."""
+        try:
+            self._ensure_connected()
+            self._client.ping()
+        except Exception as e:
+            logger.warning("Redis PING failed (%s) — reconnecting", e)
+            self._client = None
             self._connect()
 
     # ------------------------------------------------------------------
@@ -126,7 +147,7 @@ class RedisRelay:
         """Check if the desktop agent is registered in Redis.
         Returns parsed JSON info dict or None."""
         try:
-            self._ensure_connected()
+            self._ping_or_reconnect()
             key = f"workiq:agents:{email.lower()}"
             raw = self._client.get(key)
             if raw:
@@ -141,7 +162,7 @@ class RedisRelay:
         msg_id = uuid.uuid4().hex[:16]
         inbox_key = f"workiq:inbox:{email.lower()}"
         try:
-            self._ensure_connected()
+            self._ping_or_reconnect()
             self._client.xadd(inbox_key, {
                 "sender": sender,
                 "text": text,
@@ -225,7 +246,7 @@ class RedisRelay:
         last_id = self._outbox_cursors.get(email, "$")
 
         try:
-            self._ensure_connected()
+            self._ping_or_reconnect()
             result = self._client.xread(
                 {outbox_key: last_id}, block=1000, count=10
             )
