@@ -366,7 +366,7 @@ This reference is reused for **every subsequent proactive message** to that user
 
 #### 2. Background Outbox Poller
 
-A **daemon thread** polls each active user's Redis outbox stream every 3 seconds using `XREAD` with a 1-second block timeout. It tracks read position per-user via stream cursors (`$` = only new messages) and cleans up inactive users after 1 hour:
+A **daemon thread** polls each active user's Redis outbox stream every 3 seconds using `XREAD` with a 1-second block timeout. It tracks read position per-user via stream cursors and cleans up inactive users after 1 hour:
 
 ```
 Thread: redis-outbox-poller (daemon)
@@ -377,6 +377,12 @@ Loop:
   │   └─ For each message → _deliver_proactive_message()
   └─ Sleep 3 seconds
 ```
+
+**Resilience features:**
+
+- **Auto-restart**: Every inbound Teams message calls `_ensure_poller_alive()`, which checks `threading.Thread.is_alive()`. If the poller thread died (e.g., Redis connection failure overnight), it is automatically restarted.
+- **Catch-up cursor (`"0"`)**: When a user sends their first message, the outbox cursor is initialized to `"0"` (read from beginning of stream) instead of `"$"` (read only new). This ensures any responses the desktop agent wrote while the poller was dead are delivered on reconnect.
+- **Ping-or-reconnect**: Before every Redis operation (`is_agent_online`, `push_to_inbox`, `XREAD`), the relay calls `_ping_or_reconnect()` which does an active `PING`. If it fails, the connection is cleanly closed and rebuilt. Token refresh is handled internally by `redis-entraid` — no manual staleness checks needed.
 
 #### 3. Direct Bot Connector REST API Delivery
 
@@ -434,6 +440,9 @@ The M365 Agents SDK provides `adapter.continue_conversation()` for proactive mes
 | **`email` field** from Bot Connector member data | Matches the desktop agent's Redis registration key (e.g., `srikantan.sankaran@microsoft.com`) |
 | **MSAL `ConfidentialClientApplication`** | Direct token acquisition for both member lookup and proactive messaging — no dependency on SDK's internal auth |
 | **Redis Streams** (not Pub/Sub) | Durable message delivery — messages persist even if the consumer is temporarily offline |
+| **Outbox cursor `"0"`** | First poll reads from beginning of stream to catch responses written while poller was dead |
+| **Poller thread auto-restart** | `_ensure_poller_alive()` called on every inbound message — restarts the daemon thread if it died |
+| **`_ping_or_reconnect()` pattern** | Active PING before every Redis operation; reconnects only on failure. No time-based staleness checks — `redis-entraid` handles token refresh internally |
 | **Guest UPN normalization** | Handles FDPO guest format (`user_domain.com#EXT#@fdpo.onmicrosoft.com` → `user@domain.com`) as a safety fallback |
 
 ---
