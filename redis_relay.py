@@ -92,11 +92,22 @@ class RedisRelay:
             logger.error("Redis relay failed to connect: %s", e)
             return
 
+        self._start_poller_thread()
+        logger.info("Redis relay started — outbox poller running")
+
+    def _start_poller_thread(self):
+        """Start (or restart) the outbox poller daemon thread."""
         self._poller_thread = threading.Thread(
             target=self._poll_outbox_loop, daemon=True, name="redis-outbox-poller"
         )
         self._poller_thread.start()
-        logger.info("Redis relay started — outbox poller running")
+
+    def _ensure_poller_alive(self):
+        """Check if the poller thread is still running; restart if dead."""
+        if self._poller_thread is None or not self._poller_thread.is_alive():
+            logger.warning("Outbox poller thread is dead — restarting")
+            self._ensure_connected()
+            self._start_poller_thread()
 
     def stop(self):
         self._stopping.set()
@@ -154,6 +165,10 @@ class RedisRelay:
             # Initialize outbox cursor to read only new messages
             if email_lower not in self._outbox_cursors:
                 self._outbox_cursors[email_lower] = "$"
+
+        # Ensure the poller thread is alive — it may have died due to
+        # a Redis connection failure or token expiry overnight
+        self._ensure_poller_alive()
 
     # ------------------------------------------------------------------
     # Outbox poller (background thread)
