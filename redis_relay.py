@@ -256,6 +256,12 @@ class RedisRelay:
                 for msg_id, fields in messages:
                     self._outbox_cursors[email] = msg_id
                     self._handle_outbox_message(email, fields)
+                    # Delete the message from the stream after delivery
+                    # so it is not replayed on restart
+                    try:
+                        self._client.xdel(outbox_key, msg_id)
+                    except Exception as e:
+                        logger.warning("Failed to XDEL %s from %s: %s", msg_id, outbox_key, e)
 
         except redis.ConnectionError:
             raise  # let the outer loop handle reconnect

@@ -382,6 +382,7 @@ Loop:
 
 - **Auto-restart**: Every inbound Teams message calls `_ensure_poller_alive()`, which checks `threading.Thread.is_alive()`. If the poller thread died (e.g., Redis connection failure overnight), it is automatically restarted.
 - **Catch-up cursor (`"0"`)**: When a user sends their first message, the outbox cursor is initialized to `"0"` (read from beginning of stream) instead of `"$"` (read only new). This ensures any responses the desktop agent wrote while the poller was dead are delivered on reconnect.
+- **Message cleanup (`XDEL`)**: After each outbox message is successfully delivered to Teams, it is deleted from the Redis stream via `XDEL`. This prevents old responses from being replayed when the container restarts.
 - **Ping-or-reconnect**: Before every Redis operation (`is_agent_online`, `push_to_inbox`, `XREAD`), the relay calls `_ping_or_reconnect()` which does an active `PING`. If it fails, the connection is cleanly closed and rebuilt. Token refresh is handled internally by `redis-entraid` — no manual staleness checks needed.
 
 #### 3. Direct Bot Connector REST API Delivery
