@@ -317,13 +317,7 @@ async def on_message(context: TurnContext, state: TurnState):
             )
             return
 
-        # Immediate acknowledgement
-        await context.send_activity(
-            MessageFactory.text(
-                "✅ Your request has been submitted to your WorkIQ agent. "
-                "I'll send you the response once it's ready."
-            )
-        )
+        # No ack — the proactive reply from the outbox poller is sufficient.
 
     except Exception as exc:
         logger.error("Error in message handler: %s", exc, exc_info=True)
